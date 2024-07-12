@@ -1,123 +1,119 @@
 import tensorflow as tf
-from attention_modules import PAM_Module, CAM_Module
+from ..attention_modules.DualAtt import PAM_Module, CAM_Module
 
-######################################################################################################
-#                                                                                                    #
-# ------------------------------------------- DANet -------------------------------------------------#
-#                                                                                                    #
-######################################################################################################
+
 # https://github.com/junfu1115/DANet
-r"""DANet model from the paper `"Dual Attention Network for Scene Segmentation"
-<https://arxiv.org/abs/1809.02983.pdf>`
-"""
+
+# @inproceedings{fu2019dual,
+#   title={Dual attention network for scene segmentation},
+#   author={Fu, Jun and Liu, Jing and Tian, Haijie and Li, Yong and Bao, Yongjun and Fang, Zhiwei and Lu, Hanqing},
+#   booktitle={Proceedings of the IEEE/CVF conference on computer vision and pattern recognition},
+#   pages={3146--3154},
+#   year={2019}
+#   url=https://arxiv.org/abs/1809.02983.pdf}
+# }
 
 class DANet():
-    def __init__(self, nclass, backbone='resnet101', input_shape=(512, 512, 3)):
-        self.input_shape = input_shape
-        self.pretrained = "imagenet"
+    """
+    ResNet-101, ResNet-50
+    output_stride fixed 16
+    """
+    def __init__(self, nclass, backbone='resnet101', input_shape=(512, 512, 3), finetune=True):
+        if backbone not in ['resnet101', 'resnet50']:
+            print("backbone_name ERROR! Please input: resnet101, resnet50")
+            raise NotImplementedError
+        # Verify input shape dimensions. To verify that output_stride 16 is possible and not too small 4px
+        height, width, _ = input_shape
+        if height % 64 != 0 or width % 64 != 0:
+            raise ValueError("Height and width of input_shape must be divisible by 64.")
+            
+        self.input_shape = input_shape    
+        if finetune :
+            self.pretrained = "imagenet"
+        else :
+            self.pretrained = None
+        self.nclass = nclass
         self.inputs = tf.keras.layers.Input(shape=self.input_shape)
         self.backbone = backbone
 
-        # resnet101 and resnet50
+        # resnet101 and resnet50 common configurations
         height, width, in_channels = (32, 32, 2048)
+        self.inter_channels = in_channels // 4
 
-        inter_channels = in_channels // 4
-        # Convolution layers for feature extraction
-        self.conv5a = tf.keras.Sequential([
-            tf.keras.layers.Conv2D(inter_channels, 3, padding='same', use_bias=False),
-            tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.Activation('relu')
-        ])
+        self.conv5a = self._make_conv_block(self.inter_channels, name="conv5a")
+        self.conv5c = self._make_conv_block(self.inter_channels, name="conv5c")
 
-        self.conv5c = tf.keras.Sequential([
-            tf.keras.layers.Conv2D(inter_channels, 3, padding='same', use_bias=False),
-            tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.Activation('relu')
-        ])
+        in_dim = [height, width, self.inter_channels]
+        self.sa = PAM_Module(in_dim, name="pam_module")
+        self.sc = CAM_Module(in_dim, name="cam_module")
 
-        in_dim = [height, width, inter_channels]
-        # Position Attention Module (PAM) and Channel Attention Module (CAM)
-        self.sa = PAM_Module(in_dim)
-        self.sc = CAM_Module(in_dim)
+        self.conv51 = self._make_conv_block(self.inter_channels, name="conv51")
+        self.conv52 = self._make_conv_block(self.inter_channels, name="conv52")
 
-        # Additional convolution layers
-        self.conv51 = tf.keras.Sequential([
-            tf.keras.layers.Conv2D(inter_channels, 3, padding='same', use_bias=False),
-            tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.Activation('relu')
-        ])
-
-        self.conv52 = tf.keras.Sequential([
-            tf.keras.layers.Conv2D(inter_channels, 3, padding='same', use_bias=False),
-            tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.Activation('relu')
-        ])
-
-        # Dropout and final convolution layer
         self.conv8 = tf.keras.Sequential([
-            # Dropout(0.1),
-            tf.keras.layers.Conv2D(nclass, 1)
+            tf.keras.layers.Conv2D(nclass, 1, name="conv8_conv", kernel_initializer='he_normal')
         ])
 
-        self.resize = tf.keras.layers.Resizing(self.input_shape[0], self.input_shape[1], interpolation="bilinear")
-        self.relu = tf.keras.layers.Activation('relu')
+        self.resize = tf.keras.layers.Resizing(self.input_shape[0], self.input_shape[1], interpolation="bilinear", name="resize")
 
-    
-    # ResNet Bottleneck Block
+    def _make_conv_block(self, filters, name):
+        """Creates a convolutional block with Conv2D, BatchNormalization and ReLU activation."""
+        return tf.keras.Sequential([
+            tf.keras.layers.Conv2D(filters, 3, padding='same', use_bias=False, name=f"{name}_conv", kernel_initializer='he_normal'),
+            tf.keras.layers.BatchNormalization(name=f"{name}_bn"),
+            tf.keras.layers.Activation('relu', name=f"{name}_relu")
+        ], name=f"{name}_block")
+
     def _bottleneck_resblock(self, x, filters, stride, dilation_factor, name, identity_connection=True):
+        """Defines a ResNet bottleneck block."""
         assert filters % 4 == 0, 'Bottleneck number of output ERROR!'
-        # branch1
+        
         if not identity_connection:
-            o_b1 = tf.keras.layers.Conv2D(filters, kernel_size=1, strides=stride, padding='same', name='%s_1_conv'%name)(x)
-            o_b1 = tf.keras.layers.BatchNormalization(name='%s_bn'%name)(o_b1)
+            o_b1 = tf.keras.layers.Conv2D(filters, kernel_size=1, strides=stride, padding='same', name=f'{name}_1_conv')(x)
+            o_b1 = tf.keras.layers.BatchNormalization(name=f'{name}_1_bn')(o_b1)
         else:
             o_b1 = x
-        # branch2
-        o_b2a = tf.keras.layers.Conv2D(filters//4, kernel_size=1, strides=1, padding='same', name='%s_2_conv'%name)(x)
-        o_b2a = tf.keras.layers.BatchNormalization(name='%s_2_bn'%name)(o_b2a)
-        o_b2a = tf.keras.layers.Activation("relu", name='%s_2_relu'%name)(o_b2a)
 
-        o_b2b = tf.keras.layers.Conv2D(filters//4, kernel_size=3, strides=stride, dilation_rate=dilation_factor, padding='same', name='%s_3_conv'%name)(o_b2a)
-        o_b2b = tf.keras.layers.BatchNormalization(name='%s_3_bn'%name)(o_b2b)
-        o_b2b = tf.keras.layers.Activation("relu", name='%s_3_relu'%name)(o_b2b)
+        o_b2a = tf.keras.layers.Conv2D(filters//4, kernel_size=1, strides=1, padding='same', name=f'{name}_2_conv')(x)
+        o_b2a = tf.keras.layers.BatchNormalization(name=f'{name}_2_bn')(o_b2a)
+        o_b2a = tf.keras.layers.Activation("relu", name=f'{name}_2_relu')(o_b2a)
 
-        o_b2c = tf.keras.layers.Conv2D(filters, kernel_size=1, strides=1, padding='same', name='%s_0_conv'%name)(o_b2b)
-        o_b2c = tf.keras.layers.BatchNormalization(name='%s_0_bn'%name)(o_b2c)
+        o_b2b = tf.keras.layers.Conv2D(filters//4, kernel_size=3, strides=stride, dilation_rate=dilation_factor, padding='same', name=f'{name}_3_conv')(o_b2a)
+        o_b2b = tf.keras.layers.BatchNormalization(name=f'{name}_3_bn')(o_b2b)
+        o_b2b = tf.keras.layers.Activation("relu", name=f'{name}_3_relu')(o_b2b)
 
-        # add
-        outputs = tf.keras.layers.Add(name='%s_add'%name)([o_b1, o_b2c])
-        # relu
-        outputs = tf.keras.layers.Activation("relu", name='%s_out'%name)(outputs)
+        o_b2c = tf.keras.layers.Conv2D(filters, kernel_size=1, strides=1, padding='same', name=f'{name}_4_conv')(o_b2b)
+        o_b2c = tf.keras.layers.BatchNormalization(name=f'{name}_4_bn')(o_b2c)
+
+        outputs = tf.keras.layers.Add(name=f'{name}_add')([o_b1, o_b2c])
+        outputs = tf.keras.layers.Activation("relu", name=f'{name}_out')(outputs)
         return outputs
 
     def __call__(self):
         # Load backbone
-        # resnet101v2
         if self.backbone == 'resnet101':
-            # backbone_model = tf.keras.applications.ResNet101V2(weights=self.pretrained, include_top=False, input_tensor=self.inputs)
             backbone_model = tf.keras.applications.ResNet101(weights=self.pretrained, include_top=False, input_tensor=self.inputs)
-            third_block_layer = backbone_model.get_layer(name="conv4_block23_out").output # 32, 32, 1024
-        # resnet50v2
+            third_block_layer = backbone_model.get_layer(name="conv4_block23_out").output
         elif self.backbone == 'resnet50':
-            # backbone_model = tf.keras.applications.ResNet50V2(weights=self.pretrained, include_top=False, input_tensor=self.inputs)
             backbone_model = tf.keras.applications.ResNet50(weights=self.pretrained, include_top=False, input_tensor=self.inputs)
-            third_block_layer = backbone_model.get_layer(name="conv4_block6_out").output # 32, 32, 1024
-
-        # x = backbone_model.get_layer(index=-1).output
-        #block4
+            third_block_layer = backbone_model.get_layer(name="conv4_block6_out").output
+        else:
+            raise ValueError("Unsupported backbone - choose either 'resnet101' or 'resnet50'")
+        # Process backbone output
         block4 = self._bottleneck_resblock(third_block_layer, 2048, 1, 2, 'conv5_block1', identity_connection=False)
         for i in range(2, 4):
-            block4 = self._bottleneck_resblock(block4, 2048, 1, 1, 'conv5_block%d'%i)
+            block4 = self._bottleneck_resblock(block4, 2048, 1, 1, f'conv5_block{i}')
         x = block4
 
-        # Pass through DANetHead
-        # x = self.head(x)
+        # Pass through DANet head
         feat1 = self.conv5a(x)
         sa_feat = self.sa(feat1)
         sa_conv = self.conv51(sa_feat)
+        
         feat2 = self.conv5c(x)
         sc_feat = self.sc(feat2)
         sc_conv = self.conv52(sc_feat)
+
         # Combine features from PAM and CAM
         feat_sum = sa_conv + sc_conv
         sasc_output = self.conv8(feat_sum)

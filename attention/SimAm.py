@@ -10,6 +10,15 @@ import math
 ######################################################################################################
 #  https://github.com/cpuimage/SimAM/blob/main/SimAM.py
 
+# @inproceedings{yang2021simam,
+#   title={Simam: A simple, parameter-free attention module for convolutional neural networks},
+#   author={Yang, Lingxiao and Zhang, Ru-Yuan and Li, Lida and Xie, Xiaohua},
+#   booktitle={International conference on machine learning},
+#   pages={11863--11874},
+#   year={2021},
+#   organization={PMLR}
+# }
+                                                  
 class SimAM(tf.keras.layers.Layer):
     def __init__(self, e_lambda=1e-7, **kwargs):
         super(SimAM, self).__init__(**kwargs)

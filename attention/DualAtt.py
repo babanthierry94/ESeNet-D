@@ -10,6 +10,14 @@ import math
 ######################################################################################################
 
 # https://github.com/junfu1115/DANet/tree/master
+# @inproceedings{fu2019dual,
+#   title={Dual attention network for scene segmentation},
+#   author={Fu, Jun and Liu, Jing and Tian, Haijie and Li, Yong and Bao, Yongjun and Fang, Zhiwei and Lu, Hanqing},
+#   booktitle={Proceedings of the IEEE/CVF conference on computer vision and pattern recognition},
+#   pages={3146--3154},
+#   year={2019}
+#   url=https://arxiv.org/abs/1809.02983.pdf}
+# }
 
 """ Position attention module """
 class PAM_Module(tf.keras.layers.Layer):

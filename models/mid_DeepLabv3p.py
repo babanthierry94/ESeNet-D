@@ -1,17 +1,22 @@
+# @article{baban2023mid,
+#   title={mid-DeepLabv3+: A Novel Approach for Image Semantic Segmentation Applied to African Food Dietary Assessments},
+#   author={Baban A Erep, Thierry Roland and Chaari, Lotfi},
+#   journal={Sensors},
+#   volume={24},
+#   number={1},
+#   pages={209},
+#   year={2023},
+#   publisher={MDPI}
+# }
+
 import tensorflow as tf
-from attention_modules import SimAM
+from ..attention_modules.SimAM import SimAM
 
-######################################################################################################
-#                                                                                                    #
-# ----------------------------------------- Mid-DeepLabv3+ ------------------------------------------#
-#                                                                                                    #
-######################################################################################################
-
-class mid_DeepLabv3p(object):
+class mid_DeepLabv3p():
     """
     ResNet-101
     ResNet-50
-    output_stride fixed 32
+    output_stride fixed 16
     """
     def __init__(self, num_classes=21, backbone="resnet50", input_shape=(512,512,3), finetune=True):
         if backbone not in ['resnet50', 'resnet101']:
@@ -106,8 +111,7 @@ class mid_DeepLabv3p(object):
             'sepconv2d': tf.keras.layers.SeparableConv2D
         }
         conv = conv_dict[conv_type]
-        x = conv(filters, kernel_size, name=prefix, strides=stride, dilation_rate=dilation_rate,
-                                padding="same", kernel_initializer='he_normal', use_bias=use_bias)(x)
+        x = conv(filters, kernel_size, name=prefix, strides=stride, dilation_rate=dilation_rate, padding="same", kernel_initializer='he_normal', use_bias=use_bias)(x)
         x = tf.keras.layers.BatchNormalization(name='%s_bn'%prefix)(x)
         x = tf.keras.layers.Activation('relu', name='%s_relu'%prefix)(x)
         return x
@@ -119,7 +123,7 @@ class mid_DeepLabv3p(object):
         x4 = self._Atrous_SepConv(x, conv_type="sepconv2d", prefix='aspp/sepconv4', filters=nb_filters, kernel_size=3, dilation_rate=d[3], use_bias=True)
 
         x5 = tf.keras.layers.GlobalAveragePooling2D(keepdims=True, name='aspp/avg')(x)
-        x5 = tf.keras.layers.Conv2D(256, kernel_size=1)(x5)
+        x5 = tf.keras.layers.Conv2D(256, kernel_size=1, kernel_initializer='he_normal')(x5)
         x5 = tf.keras.layers.UpSampling2D(size=x.shape[1] // x5.shape[1], interpolation="bilinear", name='asspv2/avg_upsambling')(x5)
         out = tf.keras.layers.Concatenate(name='aspp/add')([x1, x2, x3, x4, x5])
         return out

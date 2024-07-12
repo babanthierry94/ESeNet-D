@@ -1,6 +1,76 @@
 import tensorflow as tf
 from tensorflow.keras.layers import Layer, Conv2D
 
+
+class ESeNetD(object):
+    """
+    EfficientNetv2S
+    output_stride fixed 16
+    """
+    def __init__(self, num_classes=21, finetune=True, input_shape=(512,512,4)):
+
+        self.inputs_4d = tf.keras.layers.Input(shape=input_shape)
+        # Input image
+        self.input_shape = input_shape
+        self.num_classes = num_classes
+        if finetune :
+            self.pretrained = "imagenet"
+        else :
+            self.pretrained = None
+
+        # Dilations rates for ASPP module
+        self.image_rgb = self.inputs_4d[:,:,:,:3]
+        self.depth = tf.expand_dims(self.inputs_4d[:,:,:,3], axis=-1)
+
+        self.backbone_model_RGB = tf.keras.applications.EfficientNetV2S(weights=self.pretrained, include_top=False, input_tensor=self.image_rgb)
+        for layer in self.backbone_model_RGB.layers:
+            layer._name = str("rgb_") + layer._name
+
+        self.image_depth = tf.concat([self.depth, self.depth, self.depth], -1)
+        self.backbone_model_Depth = tf.keras.applications.EfficientNetV2S(weights=self.pretrained, include_top=False, input_tensor=self.image_depth)
+        for layer in self.backbone_model_Depth.layers:
+            layer._name = str("depth_") + layer._name
+
+        self.build_network()
+
+    def __call__(self):
+        model = tf.keras.Model(inputs=self.inputs_4d, outputs=self.outputs, name='ESeNetD')
+        return model
+
+    def build_network(self):
+        skip1_RGB = self.backbone_model_RGB.get_layer("rgb_block3d_add").output
+        skip2_RGB = self.backbone_model_RGB.get_layer("rgb_block4f_add").output
+        skip4_RGB = self.backbone_model_RGB.get_layer("rgb_block6o_add").output
+
+        skip1_D = self.backbone_model_Depth.get_layer("depth_block3d_add").output
+        skip2_D = self.backbone_model_Depth.get_layer("depth_block4f_add").output
+        skip4_D = self.backbone_model_Depth.get_layer("depth_block6o_add").output
+        feature_1 = Fusion_Block(128)(name='add1')([skip1_RGB, skip1_D])
+        feature_2 = Fusion_Block(256)(name='add2')([skip2_RGB, skip2_D])
+        feature_4 = Fusion_Block(512)(name='add4')([skip4_RGB, skip4_D])
+
+        # Decoder module
+        low_features = SC_Conv_block(filters=64)(feature_1)
+        middle_features = SC_Conv_block(filters=128)(feature_2)
+        middle_features =  tf.keras.layers.UpSampling2D(name="Decoder_Upsampling1a", size=(2,2), interpolation="bilinear")(middle_features) #Upsampling x2
+        high_features = SC_Conv_block(filters=256)(feature_4)
+        high_features = tf.keras.layers.UpSampling2D(name="Decoder_Upsampling1b", size=(4,4), interpolation="bilinear")(high_features) #Upsampling x4
+
+        x = tf.keras.layers.Concatenate()([high_features, middle_features, low_features])
+
+        x = SC_Conv_block(filters=256)(x)
+        x = tf.keras.layers.UpSampling2D(size=(2,2), interpolation="bilinear")(x)
+        x = SC_Conv_block(ilters=256)(x)
+
+        x = LearnedInterpolation(filters=self.num_classes)(x)
+        x = LearnedInterpolation(filters=self.num_classes)(x)
+        self.outputs = x
+
+
+#####################################################################################################
+# ---------------------------------    Fundamental Blocks          ---------------------------------#
+#####################################################################################################
+
 class LearnedInterpolation(tf.keras.layers.Layer):
     def __init__(self, filters, kernel_size=3, upsampling_factor=2, **kwargs):
         super(LearnedInterpolation, self).__init__(**kwargs)
@@ -116,68 +186,3 @@ class Fusion_Block(tf.keras.layers.Layer):
         config = {"nb_channels":self.nb_channels, "reduction_ratio": self.reduction_ratio}
         base_config = super().get_config()
         return {**base_config, **config}
-
-
-class ESeNetD(object):
-    """
-    EfficientNetv2S
-    output_stride fixed 32
-    """
-    def __init__(self, num_classes=21, finetune=True, input_shape=(512,512,4)):
-
-        self.inputs_4d = tf.keras.layers.Input(shape=input_shape)
-        # Input image
-        self.input_shape = input_shape
-        self.num_classes = num_classes
-        if finetune :
-            self.pretrained = "imagenet"
-        else :
-            self.pretrained = None
-
-        # Dilations rates for ASPP module
-        self.image_rgb = self.inputs_4d[:,:,:,:3]
-        self.depth = tf.expand_dims(self.inputs_4d[:,:,:,3], axis=-1)
-
-        self.backbone_model_RGB = tf.keras.applications.EfficientNetV2S(weights=self.pretrained, include_top=False, input_tensor=self.image_rgb)
-        for layer in self.backbone_model_RGB.layers:
-            layer._name = str("rgb_") + layer._name
-
-        self.image_depth = tf.concat([self.depth, self.depth, self.depth], -1)
-        self.backbone_model_Depth = tf.keras.applications.EfficientNetV2S(weights=self.pretrained, include_top=False, input_tensor=self.image_depth)
-        for layer in self.backbone_model_Depth.layers:
-            layer._name = str("depth_") + layer._name
-
-        self.build_network()
-
-    def __call__(self):
-        model = tf.keras.Model(inputs=self.inputs_4d, outputs=self.outputs, name='ESeNetD')
-        return model
-
-    def build_network(self):
-        skip1_RGB = self.backbone_model_RGB.get_layer("rgb_block3d_add").output
-        skip2_RGB = self.backbone_model_RGB.get_layer("rgb_block4f_add").output
-        skip4_RGB = self.backbone_model_RGB.get_layer("rgb_block6o_add").output
-
-        skip1_D = self.backbone_model_Depth.get_layer("depth_block3d_add").output
-        skip2_D = self.backbone_model_Depth.get_layer("depth_block4f_add").output
-        skip4_D = self.backbone_model_Depth.get_layer("depth_block6o_add").output
-        feature_1 = Fusion_Block(128)(name='add1')([skip1_RGB, skip1_D])
-        feature_2 = Fusion_Block(256)(name='add2')([skip2_RGB, skip2_D])
-        feature_4 = Fusion_Block(512)(name='add4')([skip4_RGB, skip4_D])
-
-        # Decoder module
-        low_features = SC_Conv_block(filters=64)(feature_1)
-        middle_features = SC_Conv_block(filters=128)(feature_2)
-        middle_features =  tf.keras.layers.UpSampling2D(name="Decoder_Upsampling1a", size=(2,2), interpolation="bilinear")(middle_features) #Upsampling x2
-        high_features = SC_Conv_block(filters=256)(feature_4)
-        high_features = tf.keras.layers.UpSampling2D(name="Decoder_Upsampling1b", size=(4,4), interpolation="bilinear")(high_features) #Upsampling x4
-
-        x = tf.keras.layers.Concatenate()([high_features, middle_features, low_features])
-
-        x = SC_Conv_block(filters=256)(x)
-        x = tf.keras.layers.UpSampling2D(size=(2,2), interpolation="bilinear")(x)
-        x = SC_Conv_block(ilters=256)(x)
-
-        x = LearnedInterpolation(filters=self.num_classes)(x)
-        x = LearnedInterpolation(filters=self.num_classes)(x)
-        self.outputs = x

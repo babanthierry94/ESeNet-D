@@ -3,7 +3,7 @@
 # CamerFood15
 # https://drive.google.com/drive/u/1/folders/1MugfmVehtIjjyqtphs-4u0GksuHy3Vjz
 #########################################################################################################
-# import librarymodel.eval()
+
 class CreateDataset_rgbd() :
     """
     Arguments :
@@ -13,7 +13,7 @@ class CreateDataset_rgbd() :
         batch_size  : the ratio between input image size and the size of backbone last output features
     """
 
-    def __init__(self, dataset_name, dataset_path, img_shape=(512,512), batch_size=2, type_data="train"):
+    def __init__(self, dataset_name, dataset_path, img_shape=(512,512), num_classes=16, batch_size=2, type_data="train"):
 
         if dataset_name not in ['camerfood15', "nyuv2", "sun", "myfood"]:
             print("ERROR! Dataset name should be : 'camerfood15', 'myfood', 'nyuv2', 'sun'")
@@ -40,7 +40,7 @@ class CreateDataset_rgbd() :
         # Dataset parameters
         self.BATCH_SIZE = batch_size
         self.IMAGE_SHAPE = img_shape
-        # self.NB_CLASS = num_classes
+        self.NB_CLASS = num_classes
 
     def load_data(self):
         """
@@ -68,8 +68,6 @@ class CreateDataset_rgbd() :
 
         images_list = sorted(images_list)
         masks_list = sorted(masks_list)
-        # print(images_list)
-        # print(masks_list)
         print("Number of images:", len(images_list))
         print("Number of masks:", len(masks_list))
         return images_list, masks_list
@@ -78,12 +76,9 @@ class CreateDataset_rgbd() :
     def get(self):
 
         def read_image(path):
-            # print(path)
             # Load image
             image = Image.open(path).convert('RGB')
-            # print(image.size)
             image = image.resize((self.IMAGE_SHAPE[1], self.IMAGE_SHAPE[0]), resample=Image.BILINEAR)
-            # print(image.size)
             image = np.asarray(image)
             image = image[..., :3]
             image = image / 255.0
@@ -91,7 +86,6 @@ class CreateDataset_rgbd() :
             return image
 
         def read_mask(path):
-            # print(path)
             # Load mask
             mask = Image.open(path).convert('L')
             # NEAREST to avoid the problem with pixel value changing in mask
@@ -100,12 +94,10 @@ class CreateDataset_rgbd() :
             mask = np.asarray(mask)
 
             if self.dataset_name == "camerfood15":
-                # n = 255 // (self.NB_CLASS-1)
-                n = 255 // 15
+                n = 255 // (self.NB_CLASS-1)
+                # n = 255 // 15
                 mask = mask / n
             
-            # mask = mask - 1
-            # print(np.unique(y))
             mask = np.expand_dims(mask, axis=-1)
             mask = mask.astype(np.uint8)
             return mask
@@ -237,25 +229,20 @@ class CreateDataset_rgbd() :
             dataset0 = dataset
             dataset1 = tf.data.Dataset.from_tensor_slices((images,masks))
             dataset2 = tf.data.Dataset.from_tensor_slices((images,masks))
-            # dataset3 = tf.data.Dataset.from_tensor_slices((images,masks))
-            # dataset4 = tf.data.Dataset.from_tensor_slices((images,masks))
+            dataset3 = tf.data.Dataset.from_tensor_slices((images,masks))
 
             dataset0 = dataset0.map(preprocess)
             dataset1 = dataset1.map(preprocess_aug1)
             dataset2 = dataset2.map(preprocess_aug2)
-            # dataset3 = dataset3.map(preprocess_aug3)
-            # dataset4 = dataset4.map(preprocess_aug4)
+            dataset3 = dataset3.map(preprocess_aug3)
 
             dataset = dataset0.concatenate(dataset1)
             dataset = dataset.concatenate(dataset2)
-            # dataset = dataset.concatenate(dataset3)
-            # dataset = dataset.concatenate(dataset4)
+            dataset = dataset.concatenate(dataset3)
         else:
-            # dataset = tf.data.Dataset.from_tensor_slices((images,masks))
             dataset = dataset.map(preprocess)
 
         dataset = dataset.shuffle(buffer_size=100, reshuffle_each_iteration=True)
         dataset = dataset.batch(self.BATCH_SIZE)
-        # dataset = dataset.prefetch(2)
         dataset = dataset.prefetch(buffer_size=tf.data.AUTOTUNE)
         return dataset

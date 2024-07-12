@@ -9,6 +9,14 @@ import math
 ######################################################################################################
 # https://github.com/BangguWu/ECANet/blob/master/models/eca_module.py
 
+# @inproceedings{wang2020eca,
+#   title={ECA-Net: Efficient channel attention for deep convolutional neural networks},
+#   author={Wang, Qilong and Wu, Banggu and Zhu, Pengfei and Li, Peihua and Zuo, Wangmeng and Hu, Qinghua},
+#   booktitle={Proceedings of the IEEE/CVF conference on computer vision and pattern recognition},
+#   pages={11534--11542},
+#   year={2020}
+# }
+
 class ECA_Attention(tf.keras.layers.Layer):
     def __init__(self, nb_channels, gamma=2, b=1,**kwargs):
         super(ECA_Attention, self).__init__(**kwargs)

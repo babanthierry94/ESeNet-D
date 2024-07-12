@@ -210,13 +210,16 @@ class CreateDataset_rgb() :
             dataset0 = dataset
             dataset1 = tf.data.Dataset.from_tensor_slices((images,masks))
             dataset2 = tf.data.Dataset.from_tensor_slices((images,masks))
-          
+            dataset3 = tf.data.Dataset.from_tensor_slices((images,masks))
+
             dataset0 = dataset0.map(preprocess)
             dataset1 = dataset1.map(preprocess_aug1)
             dataset2 = dataset2.map(preprocess_aug2)
+            dataset3 = dataset3.map(preprocess_aug3)
 
             dataset = dataset0.concatenate(dataset1)
             dataset = dataset.concatenate(dataset2)
+            dataset = dataset.concatenate(dataset3)
         else:
             dataset = dataset.map(preprocess)
 

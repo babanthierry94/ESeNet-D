@@ -9,6 +9,14 @@ import math
 # https://github.com/hujie-frank/SENet
 # https://arxiv.org/pdf/1709.01507v4.pdf
 
+# @inproceedings{hu2018squeeze,
+#   title={Squeeze-and-excitation networks},
+#   author={Hu, Jie and Shen, Li and Sun, Gang},
+#   booktitle={Proceedings of the IEEE conference on computer vision and pattern recognition},
+#   pages={7132--7141},
+#   year={2018}
+# }
+
 class SE_Attention(tf.keras.layers.Layer):
     def __init__(self, nb_channels, reduction_ratio=16, **kwargs):
         super(SE_Attention, self).__init__(**kwargs)

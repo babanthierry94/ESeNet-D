@@ -9,6 +9,14 @@ import math
 # https://github.com/landskape-ai/triplet-attention
 # https://arxiv.org/pdf/2010.03045v2.pdf
 
+# @inproceedings{misra2021rotate,
+#   title={Rotate to attend: Convolutional triplet attention module},
+#   author={Misra, Diganta and Nalamada, Trikay and Arasanipalai, Ajay Uppili and Hou, Qibin},
+#   booktitle={Proceedings of the IEEE/CVF winter conference on applications of computer vision},
+#   pages={3139--3148},
+#   year={2021}
+# }
+
 class TripletAttention(tf.keras.layers.Layer):
     def __init__(self, no_spatial=False, **kwargs):
         super(TripletAttention, self).__init__(**kwargs)

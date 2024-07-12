@@ -2,8 +2,15 @@ import tensorflow as tf
 
 # https://github.com/DeepSceneSeg/SSMA/tree/master
 
-# Valada, A., Mohan, R., & Burgard, W. (2020). Self-supervised model adaptation
-# for multimodal semantic segmentation. International Journal of Computer Vision, 128(5), 1239-1285.
+#   title={Self-supervised model adaptation for multimodal semantic segmentation},
+#   author={Valada, Abhinav and Mohan, Rohit and Burgard, Wolfram},
+#   journal={International Journal of Computer Vision},
+#   volume={128},
+#   number={5},
+#   pages={1239--1285},
+#   year={2020},
+#   publisher={Springer}
+# }
 
 
 class SSMA():

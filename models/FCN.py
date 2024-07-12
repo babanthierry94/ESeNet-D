@@ -1,21 +1,21 @@
-import tensorflow as tf
-
-#####################################################################################################
-#                                                                                                    #
-# ---------------------------------            FCN-8s             ---------------------------------#
-#                                                                                                    #
-######################################################################################################
 # https://www.kaggle.com/code/abhinavsp0730/semantic-segmentation-by-implementing-fcn/notebook
 # https://medium.com/geekculture/what-is-a-fcn-3135608d4903
 # https://github.com/fmahoudeau/FCN-Segmentation-TensorFlow/blob/master/fcn_model.py
 # https://github.com/sunnynevarekar/FCN/blob/master/src/models/fcn.py
 # https://github.com/MarvinTeichmann/tensorflow-fcn
 
+# @inproceedings{long2015fully,
+#   title={Fully convolutional networks for semantic segmentation},
+#   author={Long, Jonathan and Shelhamer, Evan and Darrell, Trevor},
+#   booktitle={Proceedings of the IEEE conference on computer vision and pattern recognition},
+#   pages={3431--3440},
+#   year={2015}
+# }
+import tensorflow as tf
 
 def FCN8s_model(num_classes=21, input_shape=(512,512,3)):
 
   inputs = tf.keras.Input(shape=input_shape)
-
   # Building a pre-trained VGG-16 feature extractor (i.e., without the final FC layers)
   backbone = tf.keras.applications.vgg16.VGG16(weights="imagenet", include_top=False, input_tensor=inputs)
 

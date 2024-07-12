@@ -1,31 +1,35 @@
+import tensorflow as tf
 
-######################################################################################################
-#                                                                                                    #
-# ----------------------------------------- DeepLabv3+ ------------------------------------------#
-#                                                                                                    #
-######################################################################################################
 
-class DeepLabv3p(object):
+# @inproceedings{chen2018encoder,
+#   title={Encoder-decoder with atrous separable convolution for semantic image segmentation},
+#   author={Chen, Liang-Chieh and Zhu, Yukun and Papandreou, George and Schroff, Florian and Adam, Hartwig},
+#   booktitle={Proceedings of the European conference on computer vision (ECCV)},
+#   pages={801--818},
+#   year={2018}
+# }
+
+class DeepLabv3p():
     """
-    ResNet-101
-    ResNet-50
-    output_stride fixed 32
+    ResNet-101, ResNet-50
+    output_stride fixed 16
     """
     def __init__(self, num_classes=21, backbone="resnet101", input_shape=(512,512,3), finetune=True):
         if backbone not in ['resnet101', 'resnet50']:
             print("backbone_name ERROR! Please input: resnet101, resnet50")
             raise NotImplementedError
-        
+        # Verify input shape dimensions. To verify that output_stride 16 is possible and not too small 4px
+        height, width, _ = input_shape
+        if height % 64 != 0 or width % 64 != 0:
+            raise ValueError("Height and width of input_shape must be divisible by 64.")
+            
         self.inputs = tf.keras.layers.Input(shape=input_shape)
-        # Number of blocks for ResNet50 and ResNet101
         self.backbone_name = backbone
         self.num_classes = num_classes
-        
         if finetune :
             self.pretrained = "imagenet"
         else :
             self.pretrained = None
-
         # Dilations rates for ASPP module
         self.aspp_dilations = [1, 6, 12, 18]
         self.build_network()
@@ -48,7 +52,6 @@ class DeepLabv3p(object):
             backbone_model = tf.keras.applications.ResNet101(weights=self.pretrained, include_top=False, input_tensor=self.inputs)
             first_layer_name = "conv2_block3_out" 
             last_layer_name = "conv4_block23_out"
-        
         #block4
         third_block_layer = backbone_model.get_layer(last_layer_name).output
         block4 = self._bottleneck_resblock(third_block_layer, 2048, 1, 2, 'conv5_block1', identity_connection=False)
@@ -90,29 +93,28 @@ class DeepLabv3p(object):
     
     # ResNet Bottleneck Block
     def _bottleneck_resblock(self, x, filters, stride, dilation_factor, name, identity_connection=True):
+        """Defines a ResNet bottleneck block."""
         assert filters % 4 == 0, 'Bottleneck number of output ERROR!'
-        # branch1
+        
         if not identity_connection:
-            o_b1 = tf.keras.layers.Conv2D(filters, kernel_size=1, strides=stride, padding='same', name='%s_1_conv'%name)(x)
-            o_b1 = tf.keras.layers.BatchNormalization(name='%s_bn'%name)(o_b1)
+            o_b1 = tf.keras.layers.Conv2D(filters, kernel_size=1, strides=stride, padding='same', name=f'{name}_1_conv')(x)
+            o_b1 = tf.keras.layers.BatchNormalization(name=f'{name}_1_bn')(o_b1)
         else:
             o_b1 = x
-        # branch2
-        o_b2a = tf.keras.layers.Conv2D(filters//4, kernel_size=1, strides=1, padding='same', name='%s_2_conv'%name)(x)
-        o_b2a = tf.keras.layers.BatchNormalization(name='%s_2_bn'%name)(o_b2a)
-        o_b2a = tf.keras.layers.Activation("relu", name='%s_2_relu'%name)(o_b2a)
 
-        o_b2b = tf.keras.layers.Conv2D(filters//4, kernel_size=3, strides=stride, dilation_rate=dilation_factor, padding='same', name='%s_3_conv'%name)(o_b2a)
-        o_b2b = tf.keras.layers.BatchNormalization(name='%s_3_bn'%name)(o_b2b)
-        o_b2b = tf.keras.layers.Activation("relu", name='%s_3_relu'%name)(o_b2b)
+        o_b2a = tf.keras.layers.Conv2D(filters//4, kernel_size=1, strides=1, padding='same', name=f'{name}_2_conv')(x)
+        o_b2a = tf.keras.layers.BatchNormalization(name=f'{name}_2_bn')(o_b2a)
+        o_b2a = tf.keras.layers.Activation("relu", name=f'{name}_2_relu')(o_b2a)
 
-        o_b2c = tf.keras.layers.Conv2D(filters, kernel_size=1, strides=1, padding='same', name='%s_0_conv'%name)(o_b2b)
-        o_b2c = tf.keras.layers.BatchNormalization(name='%s_0_bn'%name)(o_b2c)
+        o_b2b = tf.keras.layers.Conv2D(filters//4, kernel_size=3, strides=stride, dilation_rate=dilation_factor, padding='same', name=f'{name}_3_conv')(o_b2a)
+        o_b2b = tf.keras.layers.BatchNormalization(name=f'{name}_3_bn')(o_b2b)
+        o_b2b = tf.keras.layers.Activation("relu", name=f'{name}_3_relu')(o_b2b)
 
-        # add
-        outputs = tf.keras.layers.Add(name='%s_add'%name)([o_b1, o_b2c])
-        # relu
-        outputs = tf.keras.layers.Activation("relu", name='%s_out'%name)(outputs)
+        o_b2c = tf.keras.layers.Conv2D(filters, kernel_size=1, strides=1, padding='same', name=f'{name}_4_conv')(o_b2b)
+        o_b2c = tf.keras.layers.BatchNormalization(name=f'{name}_4_bn')(o_b2c)
+
+        outputs = tf.keras.layers.Add(name=f'{name}_add')([o_b1, o_b2c])
+        outputs = tf.keras.layers.Activation("relu", name=f'{name}_out')(outputs)
         return outputs
     
     def _Atrous_SepConv(self, x, conv_type="conv2d", prefix="None", filters=256, kernel_size=3,  stride=1, dilation_rate=1, use_bias=False):
@@ -123,8 +125,8 @@ class DeepLabv3p(object):
         conv = conv_dict[conv_type]
         x = conv(filters, kernel_size, name=prefix, strides=stride, dilation_rate=dilation_rate,
                                 padding="same", kernel_initializer='he_normal', use_bias=use_bias)(x)
-        x = tf.keras.layers.BatchNormalization(name='%s_bn'%prefix)(x)
-        x = tf.keras.layers.Activation('relu', name='%s_relu'%prefix)(x)
+        x = tf.keras.layers.BatchNormalization(name=f"{prefix}_bn")(x)
+        x = tf.keras.layers.Activation('relu', name=f"{prefix}_relu")(x)
         return x
 
     def _ASPPv2(self, x, nb_filters, d):

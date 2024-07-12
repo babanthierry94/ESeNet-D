@@ -220,7 +220,7 @@ class SSMA():
 
         for l in model.layers:
             layer_name = l.name
-            if layer_name.startswith(("rgb_", "depth_")) and layer_name != "depth_conv1_conv":
+            if layer_name.startswith(("rgb_", "depth_")) :
                 layer_name_no_prefix = remove_prefix(layer_name)
                 try:
                     if layer_name_no_prefix in [layer.name for layer in weight_model.layers]:

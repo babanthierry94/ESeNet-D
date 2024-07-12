@@ -78,7 +78,7 @@ class AdapNet_pp:
         return outputs
 
     
-    def _resnet_unit_v2(self, x, filters, stride=1, name=None, shortcut=False, kernel_size=3):
+    def _resnet_unit_v2(self, x, filters, stride=1, name=None, shortcut=True, kernel_size=3):
       # https://github.com/keras-team/keras/blob/v3.3.3/keras/src/applications/resnet.py
         """A residual block for ResNet*_v2.
 
@@ -182,8 +182,8 @@ class AdapNet_pp:
                         weight_layer = weight_model.get_layer(layer_name_no_prefix)
                         l.set_weights(weight_layer.get_weights())
                         # print(f"Loaded weights for layer: {layer_name} (mapped to {layer_name_no_prefix})")
-                    else:
-                        print(f"No matching layer found in pre-trained model for layer: {layer_name}")
+                    # else:
+                    #     print(f"No matching layer found in pre-trained model for layer: {layer_name}")
                 except Exception as e:
                     print(f"Error loading weights for layer {layer_name}: {str(e)}")
             # else:

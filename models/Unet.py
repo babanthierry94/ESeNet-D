@@ -1,19 +1,22 @@
-
-#####################################################################################################
-#                                                                                                    #
-# ------------------------------------------- VGG19 UNet --------------------------------------------#
-#                                                                                                    #
-######################################################################################################
 # https://idiotdeveloper.com/vgg19-unet-implementation-in-tensorflow/
 # https://idiotdeveloper.com/step-by-step-guide-to-resnet50-unet-in-tensorflow/
 # https://idiotdeveloper.com/attention-unet-and-its-implementation-in-tensorflow/
 # https://pyimagesearch.com/2022/02/21/u-net-image-segmentation-in-keras/
+
+# @inproceedings{ronneberger2015u,
+#   title={U-net: Convolutional networks for biomedical image segmentation},
+#   author={Ronneberger, Olaf and Fischer, Philipp and Brox, Thomas},
+#   booktitle={Medical image computing and computer-assisted intervention--MICCAI 2015: 18th international conference, Munich, Germany, October 5-9, 2015, proceedings, part III 18},
+#   pages={234--241},
+#   year={2015},
+#   organization={Springer}
+# }
     
 def conv_block(input, num_filters):
   # Conv2D then ReLU activation
-    x = tf.keras.layers.Conv2D(num_filters, 3, padding="same", activation = "relu",)(input)
+    x = tf.keras.layers.Conv2D(num_filters, 3, padding="same", activation = "relu", kernel_initializer='he_normal')(input)
     # Conv2D then ReLU activation
-    x = tf.keras.layers.Conv2D(num_filters, 3, padding="same", activation = "relu",)(x)
+    x = tf.keras.layers.Conv2D(num_filters, 3, padding="same", activation = "relu", kernel_initializer='he_normal')(x)
     return x
 
 def decoder_block(input, skip_features, num_filters):
@@ -50,6 +53,6 @@ def VGG16_Unet(input_shape, num_classes):
 
     """ Output """
     outputs = tf.keras.layers.Conv2D(num_classes, kernel_size=1, padding='same', kernel_initializer='he_normal')(d4)
-    model = tf.keras.models.Model(inputs, outputs, name="VGG16_U-Net")
+    model = tf.keras.models.Model(inputs, outputs, name="VGG16_UNet")
     return model
  

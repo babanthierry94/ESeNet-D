@@ -9,6 +9,13 @@ import math
 ######################################################################################################
 # https://arxiv.org/pdf/2103.02907v1.pdf
 # https://github.com/houqb/CoordAttention/blob/main/coordatt.py
+# @inproceedings{hou2021coordinate,
+#   title={Coordinate attention for efficient mobile network design},
+#   author={Hou, Qibin and Zhou, Daquan and Feng, Jiashi},
+#   booktitle={Proceedings of the IEEE/CVF conference on computer vision and pattern recognition},
+#   pages={13713--13722},
+#   year={2021}
+# }
 
 class CoordAtt(tf.keras.layers.Layer):
     def __init__(self, nb_channels, reduction=32, **kwargs):

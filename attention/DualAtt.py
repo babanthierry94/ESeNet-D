@@ -13,13 +13,14 @@ import math
 
 """ Position attention module """
 class PAM_Module(tf.keras.layers.Layer):
-    def __init__(self, in_dim):
-        super(PAM_Module, self).__init__()
-        height, width, C = in_dim
+    def __init__(self, in_dim, name=None):
+        super(PAM_Module, self).__init__(name=name)
+        self.input_dim = in_dim
+        height, width, C = self.input_dim
         # Convolution layers for query, key, and value
-        self.query_conv = tf.keras.layers.Conv2D(filters=C, kernel_size=1)
-        self.key_conv = tf.keras.layers.Conv2D(filters=C, kernel_size=1)
-        self.value_conv = tf.keras.layers.Conv2D(filters=C, kernel_size=1)
+        self.query_conv = tf.keras.layers.Conv2D(filters=C, kernel_size=1, kernel_initializer='he_normal')
+        self.key_conv = tf.keras.layers.Conv2D(filters=C, kernel_size=1, kernel_initializer='he_normal')
+        self.value_conv = tf.keras.layers.Conv2D(filters=C, kernel_size=1, kernel_initializer='he_normal')
         # Learnable parameter for adjustment
         self.beta = tf.Variable(initial_value=tf.zeros(1), trainable=True, name="beta")
         # Reshape layers for efficient matrix operations
@@ -49,14 +50,20 @@ class PAM_Module(tf.keras.layers.Layer):
         # Fine-tuning the output with the gamma parameter
         out = self.beta * out + x
         return out
+        
+    def get_config(self):
+        config = {"in_dim":self.input_dim}
+        base_config = super().get_config()
+        return {**base_config, **config}
+
 
     
 """ Channel attention module """
-
 class CAM_Module(tf.keras.layers.Layer):
-    def __init__(self, in_dim):
-        super(CAM_Module, self).__init__()
-        height, width, C = in_dim
+    def __init__(self, in_dim, name=None):
+        super(CAM_Module, self).__init__(name=name)
+        self.input_dim = in_dim
+        height, width, C = self.input_dim
         # Learnable parameter for adjustment
         self.alpha = tf.Variable(initial_value=tf.zeros(1), trainable=True, name="alpha")
         # Reshape layers for efficient matrix operations
@@ -84,4 +91,9 @@ class CAM_Module(tf.keras.layers.Layer):
         # Fine-tuning the output with the gamma parameter
         out = self.alpha * out + x
         return out
+        
+    def get_config(self):
+        config = {"in_dim":self.input_dim}
+        base_config = super().get_config()
+        return {**base_config, **config}
     

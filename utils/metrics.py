@@ -32,15 +32,6 @@ def get_flops(model):
     else:
         raise ValueError("Input must be a Keras Model or Sequential instance")
 
-def get_depth(model):
-    # Count the number of layers with parameters
-    if isinstance(model, (Model, Sequential)):
-        trainable_layers = [layer for layer in model.layers if layer.trainable_variables]
-        depth = len(trainable_layers)
-        return depth
-    else:
-        raise ValueError("Input must be a Keras Model or Sequential instance")
-
 def get_weight(model):
     # Calculate the weight of the model in megabytes (MB)
     # weight_mb = sum([tf.reduce_prod(var.shape) * var.dtype.size for var in model.trainable_variables]) / (1024 ** 2)
@@ -55,8 +46,6 @@ def get_nb_parameters(model):
 def compute_model_metrics(model):
     # Compute various metrics for the model
     if isinstance(model, (Model, Sequential)):
-        # Compute the depth of the model
-        depth = get_depth(model)
         # Compute the number of parameters
         num_params = get_nb_parameters(model)
         # Compute the weight of the model in MB
@@ -68,9 +57,7 @@ def compute_model_metrics(model):
     
     # Print the computed metrics
     print("\n======= Model metrics =========")
-
     print(f"Nb of Params: \t {num_params:.2f} Million")
-    print(f"Depth: \t \t {depth}")
     print(f"Number of FLOPs: {flops:.2f} Billion")
     print(f"Weight: \t {weight_mb:.2f} MB")
     

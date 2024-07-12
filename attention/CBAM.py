@@ -15,6 +15,15 @@ import math
 # https://github.com/MailSuesarn/Convolutional-Block-Attention-Module-CBAM/blob/main/CBAM.py
 # https://arxiv.org/pdf/1807.06521.pdf
 # https://github.com/Jongchan/attention-module/blob/5d3a54af0f6688bedca3f179593dff8da63e8274/MODELS/cbam.py#L68
+
+# @inproceedings{woo2018cbam,
+#   title={Cbam: Convolutional block attention module},
+#   author={Woo, Sanghyun and Park, Jongchan and Lee, Joon-Young and Kweon, In So},
+#   booktitle={Proceedings of the European conference on computer vision (ECCV)},
+#   pages={3--19},
+#   year={2018}
+# }
+
 """Contains the implementation of Convolutional Block Attention Module(CBAM) block.
 As described in https://arxiv.org/abs/1807.06521.
 """

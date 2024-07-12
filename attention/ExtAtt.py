@@ -48,5 +48,4 @@ class ExternalAttention(tf.keras.layers.Layer):
         x = x + inputs
         # Apply ReLU activation
         x = tf.keras.activations.relu(x)
-
         return x

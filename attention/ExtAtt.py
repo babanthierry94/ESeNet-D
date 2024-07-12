@@ -7,6 +7,20 @@ import math
 # ---------------------------------- External Attention Module  -------------------------------------#
 #                                                                                                    #
 ######################################################################################################
+
+# https://github.com/MenghaoGuo/EANet/tree/main
+
+# @article{guo2022beyond,
+#   title={Beyond self-attention: External attention using two linear layers for visual tasks},
+#   author={Guo, Meng-Hao and Liu, Zheng-Ning and Mu, Tai-Jiang and Hu, Shi-Min},
+#   journal={IEEE Transactions on Pattern Analysis and Machine Intelligence},
+#   volume={45},
+#   number={5},
+#   pages={5436--5447},
+#   year={2022},
+#   publisher={IEEE}
+# }
+
 class ExternalAttention(tf.keras.layers.Layer):
     def __init__(self, height, width, channels):
         super(ExternalAttention, self).__init__()
